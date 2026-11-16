@@ -1,0 +1,10 @@
+.DS_Store
+# photos are not redistributed, see benchmark/download_images.py
+benchmark/images/
+benchmark/*.log
+benchmark/report/store/
+benchmark/out/runs.json
+# private instructions with personal links and names
+project-instructions.md
+project-instructions-liza.md
+benchmark/report/
