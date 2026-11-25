@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>trackEat: how accurately Claude counts calories from photos</title>
+<meta name="description" content="Benchmark of Claude Haiku, Sonnet and Opus 5.5 on 35 food photos with known calories: accuracy, effort levels, what to send with the photo, cost.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2320A67A'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#fbfaf7;--panel:#fff;--fg:#1d1d1b;--muted:#6b6a64;--line:#e4e2da;--grid:#ecebe4;--accent:#20a67a;
+  --haiku:#d97757;--sonnet:#3b82c4;--opus:#8b5cc6;--ok:#1a8a5f;--bad:#c2410c;
+  --serif:Georgia,"Times New Roman",serif;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#181816;--panel:#222220;--fg:#efeee9;--muted:#a3a29a;--line:#36352f;--grid:#2d2c27;
+  --haiku:#e8896b;--sonnet:#5a9ddb;--opus:#a583dc;--ok:#4cc79a;--bad:#f08a5a;}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 var(--sans)}
+main{max-width:1060px;margin:0 auto;padding:28px 16px 80px;display:flex;flex-direction:column;gap:44px}
+h1{font:400 clamp(1.9rem,4.5vw,2.8rem)/1.12 var(--serif);margin:0;text-wrap:balance}
+h2{font-size:1.3rem;font-weight:600;margin:0;text-wrap:balance}
+p{margin:0}
+a{color:var(--accent)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;font-size:.9rem;color:var(--muted)}
+.top nav{display:flex;gap:14px;flex-wrap:wrap}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lang button{background:var(--panel);color:var(--fg);border:0;padding:5px 12px;cursor:pointer;font:inherit}
+.lang button[aria-pressed=true]{background:var(--accent);color:#fff}
+.eyebrow{font-size:.78rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.head{display:flex;flex-direction:column;gap:12px}
+.lede{font-size:1.1rem;max-width:70ch}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.tile .k{font-size:.85rem;color:var(--muted)}
+.tile .v{font:400 2.4rem/1.1 var(--serif);font-variant-numeric:tabular-nums}
+.tile .who{font-weight:600;font-size:.95rem}
+.tile .sub{font-size:.82rem;color:var(--muted)}
+section{display:flex;flex-direction:column;gap:14px}
+.note{color:var(--muted);font-size:.88rem;max-width:80ch}
+.chart{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.chart canvas{width:100%!important}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:.88rem;color:var(--muted)}
+select{font:inherit;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:5px 8px}
+.scroll{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:.85rem;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:600;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--muted);font-size:.8em}
+.heat td{min-width:84px}
+td.bad{color:var(--bad)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:8px}
+.card h3{margin:0;font-size:1rem}
+.card ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
+details{border-top:1px solid var(--line);padding-top:14px}
+summary{cursor:pointer;font-weight:600}
+details .in{display:flex;flex-direction:column;gap:12px;margin-top:12px;max-width:80ch}
+details ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:5px}
+footer{font-size:.85rem;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
+</style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <nav>
+      <a href="https://github.com/ArtemkaGoldMan/trackEat">GitHub</a>
+      <a href="#scen" data-i18n="nav_scen"></a>
+      <a href="#dish" data-i18n="nav_dish"></a>
+      <a href="#snack" data-i18n="nav_snack"></a>
+      <a href="#table" data-i18n="nav_table"></a>
+      <a href="#method" data-i18n="nav_method"></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language">
+      <button id="l-en" aria-pressed="true">English</button><button id="l-uk" aria-pressed="false">Українська</button>
+    </div>
+  </div>
+
+  <header class="head">
+    <p class="eyebrow" id="eyebrow"></p>
+    <h1 data-i18n="title"></h1>
+    <p class="lede" id="takeaway"></p>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section id="scen">
+    <h2 data-i18n="scen_h"></h2>
+    <p class="note" data-i18n="scen_n"></p>
+    <div class="chart"><canvas id="c-scen" height="250"></canvas></div>
+  </section>
+
+  <section id="dish">
+    <h2 data-i18n="dish_h"></h2>
+    <p class="note" data-i18n="dish_n"></p>
+    <div class="chart"><canvas id="c-dish" height="330"></canvas></div>
+  </section>
+
+  <section id="snack">
+    <h2 data-i18n="snack_h"></h2>
+    <p class="note" data-i18n="snack_n"></p>
+    <div class="chart"><canvas id="c-snack" height="330"></canvas></div>
+    <div class="controls"><label for="snack-eff" data-i18n="effort_in_table"></label>
+      <select id="snack-eff"><option>low</option><option selected>medium</option><option>high</option></select>
+      <span data-i18n="snack_tbl_n"></span></div>
+    <div class="scroll"><table id="snack-table"></table></div>
+  </section>
+
+  <section id="modes">
+    <h2 data-i18n="modes_h"></h2>
+    <p class="note" data-i18n="modes_n"></p>
+    <div class="chart"><canvas id="c-modes" height="300"></canvas></div>
+  </section>
+
+  <section id="daily">
+    <h2 data-i18n="daily_h"></h2>
+    <p class="note" data-i18n="daily_n"></p>
+    <div class="chart"><canvas id="c-daily" height="260"></canvas></div>
+  </section>
+
+  <section id="items">
+    <h2 data-i18n="items_h"></h2>
+    <div class="controls"><label for="heat-mode" data-i18n="mode_lbl"></label><select id="heat-mode"></select>
+      <span data-i18n="items_n"></span></div>
+    <div class="scroll"><table id="heat" class="heat"></table></div>
+  </section>
+
+  <section id="cost">
+    <h2 data-i18n="cost_h"></h2>
+    <p class="note" data-i18n="cost_n"></p>
+    <div class="chart"><canvas id="c-cost" height="300"></canvas></div>
+  </section>
+
+  <section id="table">
+    <h2 data-i18n="table_h"></h2>
+    <div class="controls"><label for="sum-view" data-i18n="set_lbl"></label><select id="sum-view"></select></div>
+    <div class="scroll"><table id="sum-table"></table></div>
+    <p class="note" data-i18n="table_n"></p>
+  </section>
+
+  <section id="advice">
+    <h2 data-i18n="advice_h"></h2>
+    <div class="cards" id="advice-cards"></div>
+  </section>
+
+  <details id="method">
+    <summary data-i18n="method_h"></summary>
+    <div class="in" id="method-body"></div>
+  </details>
+
+  <footer id="foot"></footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const DATA = /*DATA*/null;
+const MODELS = ["haiku", "sonnet", "opus"];
+const EFFORTS = ["low", "medium", "high"];
+const MODES = ["photo", "hint", "cooked", "rough", "main_weight", "weighed"];
+const EFF_ALPHA = {low: .45, medium: .72, high: 1};
+const MODEL_NAME = {haiku: "Haiku 5.5", sonnet: "Sonnet 5.5", opus: "Opus 5.5"};
+
+const T = {
+en: {
+  nav_scen:"What to send", nav_dish:"Dishes", nav_snack:"Snacks", nav_table:"All numbers", nav_method:"Method",
+  title:"How accurately Claude counts calories from a photo",
+  eyebrow:(n)=>`35 photos with known calories · Haiku, Sonnet, Opus · ${n.toLocaleString("en")} model responses`,
+  takeaway:(a,b,c,d)=>`<b>Sonnet 5.5 in standard mode</b> works best. From a photo alone it is off by <b>${a}</b> on a plated dish. Give the weight of the main item and the error drops to <b>${b}</b>; weigh everything and it is <b>${c}</b>. Over a whole day errors partly cancel out, giving about <b>${d}</b> from photos alone.`,
+  tile_photo:"Dish, photo only", tile_main:"Photo + weight of the main item", tile_all:"Photo + weight of every item", tile_day:"Daily error, photo only",
+  tile_sub_ci:(a,b)=>`mean calorie error, 95% CI ${a}–${b}`, tile_ci:(a,b)=>`95% CI ${a}–${b}`, tile_day_sub:(x)=>`with main item weight: ${x}`,
+  scen_h:"What you send with the photo, and how accurate Claude is",
+  scen_n:"20 plated dishes, effort low. Photo only: up to 10 responses per photo; other modes 3–5. Bar is the mean calorie error, whisker is the 95% confidence interval over photos.",
+  dish_h:"Plated dish, photo only: mean calorie error",
+  dish_n:"20 dishes from Nutrition5k, every ingredient weighed in the lab. Each configuration answered each photo up to 10 times. Dashed line: 20%, the tolerance US rules allow even for the label of a packaged product.",
+  snack_h:"Snacks and branded products: mean calorie error",
+  snack_n:"15 items: handfuls of almonds, an apple, cookies, a brownie (weighed, Nutrition5k) and Snickers, Mars, Twix, Oreo, Milka, Big Mac and Big Mac meal (official data).",
+  effort_in_table:"Effort in the table:", snack_tbl_n:"Median of up to 10 responses, range below (min–max), kcal",
+  product:"Product", truth:"Truth, kcal",
+  modes_h:"All modes for every model and effort",
+  modes_n:"Item list and full weights were tested on all 9 configurations; cooking description, rough amounts and main-item weight only on Sonnet and Opus at effort low.",
+  daily_h:"Error over a whole day",
+  daily_n:"Simulation of 5,000 days: 3 random dishes + 1 snack, one random model response per meal. Random errors of single meals partly cancel; a systematic overestimate does not.",
+  items_h:"Each photo separately: how far the median of up to 10 responses was off",
+  mode_lbl:"Mode:", items_n:"Red = overestimated, blue = underestimated; number is the error in %",
+  cost_h:"Accuracy versus price", cost_n:"Dishes, photo only. Left is cheaper, lower is more accurate. The horizontal scale is logarithmic. Cost at API prices; in Claude chat on a subscription you do not pay per photo.",
+  table_h:"All numbers", set_lbl:"Set:",
+  table_n:"Mean error is the mean of |estimate − truth| / truth over photos. Bias is the mean signed error (plus = overestimate). Spread is the coefficient of variation of repeated responses for one photo. Macros: total absolute gram error divided by total true grams.",
+  cols:["Model · effort","Mean error, %","95% CI","≤10%","≤20%","Bias, %","Spread, %","Protein, %","Fat, %","Carbs, %","Time, s","$ / 1000 photos"],
+  mode_names:{photo:"Photo only",hint:"Photo + item list",cooked:"Photo + cooking description",rough:"Photo + rough amounts",main_weight:"Photo + main item weight",weighed:"Photo + all weights"},
+  mode_short:{photo:"Photo only",hint:"+ item list",cooked:"+ cooking description",rough:"+ rough amounts",main_weight:"+ main item weight",weighed:"+ all weights"},
+  set_names:{dish:"Dishes",snack:"Snacks and brands"},
+  err_axis:"Mean calorie error, %", day_axis:"Daily error, %", cost_axis:"Cost, $ per 1,000 photos (log scale)",
+  advice_h:"What this means in practice",
+  advice:[
+    ["Choose the model",["Sonnet 5.5 in standard mode: the most accurate on dishes and cheaper than Opus.","Opus is a bit better on snacks and packaged food.","Haiku overestimates by ~20% and makes gross errors (a doubled Twix). Not recommended.","Effort barely matters, and high makes responses twice as long."]],
+    ["What to send",["Weight of the main item beats everything else: 28% → 22%.","Weigh everything when you can: 13% per dish, 6% per day.","Always give the amount of oil and sauces.","A list of items or a description without amounts makes it worse: the model assumes a full portion."]],
+    ["Special cases",["Packaged food: photograph the side with the weight; the model reads the label.","Nuts: weigh them. A handful is underestimated by about 40%.","Fast food: name the size and the drink."]]],
+  method_h:"How the test was done",
+  method:[
+    "<p><b>Data.</b> 35 photos with known calories: 20 plated dishes and 8 snacks from <a href=\"https://github.com/google-research-datasets/Nutrition5k\">Nutrition5k</a> (Google Research, CC BY 4.0), every ingredient weighed and calories and macros computed from USDA tables; and 7 branded products from Wikimedia Commons with the label or official data as ground truth (McDonald's Ukraine for the Big Mac, fries and cola).</p>",
+    "<p><b>Runs.</b> Claude Haiku 5.5, Sonnet 5.5 and Opus 5.5 at effort low, medium and high, through Claude Code with no tools and one system prompt (identify components, estimate weight, account for oil and sauces, return JSON). Up to 10 responses per photo and configuration; <span id=\"runs-n\"></span> responses in total.</p>",
+    "<p><b>Statistics.</b> Response error = |estimate − truth| / truth; a configuration's mean is the mean over photos with equal weight. The 95% confidence interval is a bootstrap over photos (2,000 resamples), because responses to one photo are similar and the photo is the sampling unit. Daily error: 5,000 simulated days.</p>",
+    "<p><b>Limitations.</b></p><ul><li>Nutrition5k photos are taken from straight above on identical plates; ordinary angled phone photos may behave differently.</li><li>35 photos is a small sample, so intervals are wide and a difference between overlapping intervals may be random.</li><li>The ground truth has its own error (USDA tables).</li><li>Cooking description, rough amounts and main-item weight were tested only on Sonnet and Opus at effort low, with 5 responses per photo.</li></ul>",
+    "<p><b>Reproduce.</b> Code, ground truth and every response are in <a href=\"https://github.com/ArtemkaGoldMan/trackEat/tree/main/benchmark\">benchmark/</a>. This page is generated from <code>benchmark/out/*.json</code> by <code>benchmark/build_site.py</code>.</p>"],
+  foot:`Part of <a href="https://github.com/ArtemkaGoldMan/trackEat">trackEat</a>: a free calorie tracker made of a Claude chat and a Google Sheet. Photos: Nutrition5k (CC BY 4.0) and Wikimedia Commons. Estimates are guidance, not medical advice.`
+},
+uk: {
+  nav_scen:"Що надсилати", nav_dish:"Страви", nav_snack:"Снеки", nav_table:"Усі цифри", nav_method:"Методика",
+  title:"Наскільки точно Claude рахує калорії з фото",
+  eyebrow:(n)=>`35 фото з відомою калорійністю · Haiku, Sonnet, Opus · ${n.toLocaleString("uk")} відповідей моделей`,
+  takeaway:(a,b,c,d)=>`Найкраще працює <b>Sonnet 5.5 у звичайному режимі</b>. Лише за фото страви він помиляється в середньому на <b>${a}</b>. Якщо назвати вагу основного продукту, похибка падає до <b>${b}</b>, а якщо зважити все, до <b>${c}</b>. За цілий день похибки частково гасяться: лише з фото виходить близько <b>${d}</b>.`,
+  tile_photo:"Страва, лише фото", tile_main:"Фото + вага основного продукту", tile_all:"Фото + вага всіх продуктів", tile_day:"Похибка за день, лише фото",
+  tile_sub_ci:(a,b)=>`середня похибка калорій, 95% ДІ ${a}–${b}`, tile_ci:(a,b)=>`95% ДІ ${a}–${b}`, tile_day_sub:(x)=>`з вагою основного продукту: ${x}`,
+  scen_h:"Як ти надсилаєш їжу і наскільки точно Claude рахує",
+  scen_n:"20 страв з тарілки, effort low. Лише фото: до 10 відповідей на фото, інші режими 3–5. Смужка — середня похибка калорій, риска — 95% довірчий інтервал по фото.",
+  dish_h:"Страва з тарілки, лише фото: середня похибка калорій",
+  dish_n:"20 страв з Nutrition5k, кожен інгредієнт зважено в лабораторії. Кожна конфігурація оцінила кожне фото до 10 разів. Пунктир — 20%: стільки дозволено відхилятися навіть етикетці упакованого продукту в США.",
+  snack_h:"Снеки й брендові продукти: середня похибка калорій",
+  snack_n:"15 позицій: жмені мигдалю, яблуко, печиво, брауні (зважені, Nutrition5k) та Snickers, Mars, Twix, Oreo, Milka, Біг Мак і Біг Мак меню (офіційні дані).",
+  effort_in_table:"Effort у таблиці:", snack_tbl_n:"Медіана до 10 відповідей, під нею розкид (мін–макс), ккал",
+  product:"Продукт", truth:"Реально, ккал",
+  modes_h:"Усі режими для кожної моделі та effort",
+  modes_n:"Перелік продуктів і повну вагу перевірено на всіх 9 конфігураціях, опис приготування, приблизні кількості й вагу основного продукту лише на Sonnet і Opus з effort low.",
+  daily_h:"Похибка за цілий день",
+  daily_n:"Симуляція 5 000 днів: 3 випадкові страви + 1 снек, по одній випадковій відповіді на прийом їжі. Випадкові помилки окремих прийомів частково компенсують одна одну, систематичне завищення ні.",
+  items_h:"Кожне фото окремо: на скільки помилилась медіана до 10 відповідей",
+  mode_lbl:"Режим:", items_n:"Червоне — завищено, синє — занижено; число — похибка у %",
+  cost_h:"Точність проти ціни", cost_n:"Страви, лише фото. Ліворуч дешевше, нижче точніше. Горизонтальна шкала логарифмічна. Ціни API; у чаті Claude за підпискою кожне фото окремо не оплачується.",
+  table_h:"Усі цифри", set_lbl:"Набір:",
+  table_n:"Сер. похибка — середнє |оцінка − реальність| / реальність по фото. Зсув — середня похибка зі знаком (плюс — завищення). Розкид — коефіцієнт варіації повторних відповідей на одне фото. БЖВ: сумарна абсолютна помилка в грамах, поділена на сумарні реальні грами.",
+  cols:["Модель · effort","Сер. похибка, %","95% ДІ","≤10%","≤20%","Зсув, %","Розкид, %","Білки, %","Жири, %","Вугл., %","Час, с","$ / 1000 фото"],
+  mode_names:{photo:"Лише фото",hint:"Фото + перелік продуктів",cooked:"Фото + опис приготування",rough:"Фото + приблизні кількості",main_weight:"Фото + вага основного",weighed:"Фото + вага всього"},
+  mode_short:{photo:"Лише фото",hint:"+ перелік",cooked:"+ опис приготування",rough:"+ приблизні кількості",main_weight:"+ вага основного",weighed:"+ вага всього"},
+  set_names:{dish:"Страви",snack:"Снеки й бренди"},
+  err_axis:"Середня похибка калорій, %", day_axis:"Похибка за день, %", cost_axis:"Ціна, $ за 1 000 фото (логарифмічна шкала)",
+  advice_h:"Що з цього випливає на практиці",
+  advice:[
+    ["Яку модель брати",["Sonnet 5.5 у звичайному режимі: найточніший на стравах і дешевший за Opus.","Opus трохи кращий на снеках і упакованих продуктах.","Haiku завищує приблизно на 20% і робить грубі помилки (подвоєний Twix). Не рекомендую.","Effort майже не впливає, а на high відповідь удвічі довша."]],
+    ["Що надсилати разом з фото",["Вага основного продукту дає найбільше: 28% → 22%.","Якщо можеш, зважуй усе: 13% на страву, 6% за день.","Завжди називай кількість олії й соусів.","Перелік продуктів чи опис без кількостей погіршує результат: модель бере повну порцію."]],
+    ["Окремі випадки",["Упаковка: фотографуй бік з вагою, модель читає етикетку.","Горіхи зважуй: жменя занижується приблизно на 40%.","Фастфуд: називай розмір і напій."]]],
+  method_h:"Як проводили тест",
+  method:[
+    "<p><b>Дані.</b> 35 фото з відомою калорійністю: 20 страв і 8 снеків з <a href=\"https://github.com/google-research-datasets/Nutrition5k\">Nutrition5k</a> (Google Research, CC BY 4.0), кожен інгредієнт зважено, калорії й БЖВ за таблицями USDA; та 7 брендових продуктів з Wikimedia Commons, еталон — етикетка або офіційні дані (McDonald's Україна для Біг Мака, картоплі фрі й коли).</p>",
+    "<p><b>Запуски.</b> Claude Haiku 5.5, Sonnet 5.5 і Opus 5.5 з effort low, medium і high, через Claude Code без інструментів, з одним системним промптом (визнач компоненти, оціни вагу, врахуй олію й соуси, поверни JSON). До 10 відповідей на фото й конфігурацію; усього <span id=\"runs-n\"></span> відповідей.</p>",
+    "<p><b>Статистика.</b> Похибка відповіді = |оцінка − реальність| / реальність; середнє конфігурації — середнє по фото з однаковою вагою. Довірчий інтервал 95% — бутстреп по фото (2 000 вибірок), бо відповіді на одне фото схожі, а одиниця вибірки — фото. Похибка за день: 5 000 змодельованих днів.</p>",
+    "<p><b>Обмеження.</b></p><ul><li>Фото Nutrition5k зроблені строго зверху на однакових тарілках; звичайні фото з телефона під кутом можуть давати інші результати.</li><li>35 фото — невелика вибірка, тож інтервали широкі, а різниця між перекритими інтервалами може бути випадковою.</li><li>Еталон має власну похибку (таблиці USDA).</li><li>Опис приготування, приблизні кількості й вагу основного перевірено лише на Sonnet і Opus з effort low, по 5 відповідей на фото.</li></ul>",
+    "<p><b>Відтворення.</b> Код, еталони й усі відповіді лежать у <a href=\"https://github.com/ArtemkaGoldMan/trackEat/tree/main/benchmark\">benchmark/</a>. Ця сторінка генерується з <code>benchmark/out/*.json</code> скриптом <code>benchmark/build_site.py</code>.</p>"],
+  foot:`Частина <a href="https://github.com/ArtemkaGoldMan/trackEat">trackEat</a>: безкоштовний трекер калорій із чату Claude та Google-таблиці. Фото: Nutrition5k (CC BY 4.0) і Wikimedia Commons. Оцінки — орієнтир, не медична порада.`
+}};
+
+let lang = "en";
+if ((navigator.language || "").startsWith("uk")) lang = "uk";
+try { const s = localStorage.getItem("lang"); if (s) lang = s; } catch (e) {}
+const t = () => T[lang];
+const nf = (v, d = 1) => v.toLocaleString(lang === "uk" ? "uk" : "en", {minimumFractionDigits: d, maximumFractionDigits: d});
+const pct = (v) => nf(v, 1) + "%";
+const cssv = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const S = DATA.summary;
+const sRow = (cfg) => S.find((r) => r.config === cfg);
+const dRow = (cfg) => DATA.daily.find((r) => r.config === cfg);
+const modelColor = (m) => cssv("--" + m);
+const withAlpha = (hex, a) => { const c = hex.replace("#", ""); const n = parseInt(c.length === 3 ? c.split("").map((x) => x + x).join("") : c, 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+const cfgColor = (m, e) => withAlpha(modelColor(m), EFF_ALPHA[e]);
+const itemName = (id) => { const d = DATA.dataset.find((x) => x.item === id); return d ? d["name_" + lang] : id; };
+
+// Chart.js plugin: confidence whiskers and a vertical reference line.
+const whiskers = {
+  id: "whiskers",
+  afterDatasetsDraw(chart) {
+    const horizontal = chart.options.indexAxis === "y";
+    const ctx = chart.ctx; ctx.save(); ctx.strokeStyle = cssv("--fg"); ctx.lineWidth = 1.4;
+    chart.data.datasets.forEach((ds, di) => {
+      if (!ds.ci) return;
+      const meta = chart.getDatasetMeta(di);
+      meta.data.forEach((bar, i) => {
+        const ci = ds.ci[i]; if (!ci) return;
+        const sc = horizontal ? chart.scales.x : chart.scales.y;
+        const a = sc.getPixelForValue(ci[0]), b = sc.getPixelForValue(ci[1]), p = horizontal ? bar.y : bar.x, h = 4;
+        ctx.beginPath();
+        if (horizontal) { ctx.moveTo(a, p); ctx.lineTo(b, p); ctx.moveTo(a, p - h); ctx.lineTo(a, p + h); ctx.moveTo(b, p - h); ctx.lineTo(b, p + h); }
+        else { ctx.moveTo(p, a); ctx.lineTo(p, b); ctx.moveTo(p - h, a); ctx.lineTo(p + h, a); ctx.moveTo(p - h, b); ctx.lineTo(p + h, b); }
+        ctx.stroke();
+      });
+    });
+    const ref = chart.options.plugins.refLine;
+    if (ref && ref.value != null) {
+      const sc = horizontal ? chart.scales.x : chart.scales.y, v = sc.getPixelForValue(ref.value), ca = chart.chartArea;
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = cssv("--muted"); ctx.beginPath();
+      if (horizontal) { ctx.moveTo(v, ca.top); ctx.lineTo(v, ca.bottom); } else { ctx.moveTo(ca.left, v); ctx.lineTo(ca.right, v); }
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+};
+Chart.register(whiskers);
+
+const charts = {};
+function mk(id, cfg) {
+  if (charts[id]) charts[id].destroy();
+  const muted = cssv("--muted"), grid = cssv("--grid");
+  cfg.options = cfg.options || {};
+  cfg.options.responsive = true;
+  cfg.options.animation = false;
+  cfg.options.color = muted;
+  cfg.options.plugins = Object.assign({legend: {labels: {color: muted, boxWidth: 12}}}, cfg.options.plugins || {});
+  for (const ax of Object.values(cfg.options.scales || {})) {
+    ax.grid = Object.assign({color: grid}, ax.grid || {});
+    ax.ticks = Object.assign({color: muted}, ax.ticks || {});
+    if (ax.title) ax.title.color = muted;
+  }
+  charts[id] = new Chart(document.getElementById(id), cfg);
+}
+const ordered = (rows) => rows.slice().sort((a, b) => MODELS.indexOf(a.model) - MODELS.indexOf(b.model) || EFFORTS.indexOf(a.effort) - EFFORTS.indexOf(b.effort));
+
+function barsFor(setName, id) {
+  const rows = ordered(S.filter((r) => r.set === setName && r.mode === "photo"));
+  mk(id, {
+    type: "bar",
+    data: {labels: rows.map((r) => r.label), datasets: [{
+      data: rows.map((r) => r.mape), ci: rows.map((r) => [r.mape_lo, r.mape_hi]),
+      backgroundColor: rows.map((r) => cfgColor(r.model, r.effort)), borderRadius: 3}]},
+    options: {indexAxis: "y", plugins: {legend: {display: false}, refLine: {value: 20},
+      tooltip: {callbacks: {label: (c) => { const r = rows[c.dataIndex]; return `${pct(r.mape)} (95% CI ${nf(r.mape_lo)}–${nf(r.mape_hi)}), ≤20%: ${nf(r.within20, 0)}%`; }}}},
+      scales: {x: {beginAtZero: true, title: {display: true, text: t().err_axis}}, y: {grid: {display: false}}}}
+  });
+}
+
+function scenChart() {
+  const modes = MODES;
+  const ds = ["sonnet", "opus"].map((m) => {
+    const rows = modes.map((md) => sRow(`dish|${md}|${m}|low`));
+    return {label: MODEL_NAME[m] + " · low", data: rows.map((r) => r && r.mape), ci: rows.map((r) => r && [r.mape_lo, r.mape_hi]),
+      backgroundColor: modelColor(m), borderRadius: 3};
+  });
+  mk("c-scen", {type: "bar", data: {labels: modes.map((m) => t().mode_names[m]), datasets: ds},
+    options: {indexAxis: "y", plugins: {tooltip: {callbacks: {label: (c) => `${c.dataset.label}: ${pct(c.parsed.x)}`}}},
+      scales: {x: {beginAtZero: true, title: {display: true, text: t().err_axis}}, y: {grid: {display: false}}}}});
+}
+
+function modesChart() {
+  const rows = ordered(S.filter((r) => r.set === "dish" && r.mode === "photo"));
+  const ds = rows.map((c) => ({label: c.label, data: MODES.map((md) => { const r = sRow(`dish|${md}|${c.model}|${c.effort}`); return r ? r.mape : null; }),
+    backgroundColor: cfgColor(c.model, c.effort), borderRadius: 2}));
+  mk("c-modes", {type: "bar", data: {labels: MODES.map((m) => t().mode_short[m]), datasets: ds},
+    options: {plugins: {legend: {labels: {color: cssv("--muted"), boxWidth: 10, font: {size: 11}}}, tooltip: {callbacks: {label: (c) => `${c.dataset.label}: ${pct(c.parsed.y)}`}}},
+      scales: {y: {beginAtZero: true, title: {display: true, text: t().err_axis}}, x: {grid: {display: false}}}}});
+}
+
+function dailyChart() {
+  const ds = MODELS.map((m) => ({label: MODEL_NAME[m] + " · low",
+    data: MODES.map((md) => { const r = dRow(`day|${md}|${m}|low`); return r ? r.day_mape : null; }),
+    backgroundColor: modelColor(m), borderRadius: 3}));
+  mk("c-daily", {type: "bar", data: {labels: MODES.map((m) => t().mode_short[m]), datasets: ds},
+    options: {plugins: {tooltip: {callbacks: {label: (c) => `${c.dataset.label}: ${pct(c.parsed.y)}`}}},
+      scales: {y: {beginAtZero: true, title: {display: true, text: t().day_axis}}, x: {grid: {display: false}}}}});
+}
+
+function costChart() {
+  const rows = S.filter((r) => r.set === "dish" && r.mode === "photo");
+  const ds = MODELS.map((m) => ({label: MODEL_NAME[m], backgroundColor: modelColor(m), borderColor: modelColor(m), pointRadius: 7, pointHoverRadius: 9,
+    data: rows.filter((r) => r.model === m).map((r) => ({x: r.cost_per_1000, y: r.mape, label: r.label}))}));
+  mk("c-cost", {type: "scatter", data: {datasets: ds},
+    options: {plugins: {tooltip: {callbacks: {label: (c) => `${c.raw.label}: ${pct(c.raw.y)}, $${nf(c.raw.x, 2)} / 1000`}}},
+      scales: {x: {type: "logarithmic", title: {display: true, text: t().cost_axis}, ticks: {callback: (v) => ([1, 2, 5, 10, 20, 50].includes(v) ? "$" + v : "")}},
+        y: {beginAtZero: true, title: {display: true, text: t().err_axis}}}}});
+}
+
+function heat() {
+  const mode = document.getElementById("heat-mode").value;
+  const cfgs = ordered(S.filter((r) => r.set === "dish" && r.mode === mode));
+  const its = DATA.dataset.filter((d) => d.set === "dish");
+  const el = document.getElementById("heat");
+  let h = `<thead><tr><th>${t().product}</th><th>${t().truth}</th>${cfgs.map((c) => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>`;
+  for (const d of its) {
+    h += `<tr><td>${d["name_" + lang]}</td><td>${nf(d.gt_kcal, 0)}</td>`;
+    for (const c of cfgs) {
+      const r = DATA.items.find((x) => x.item === d.item && x.mode === mode && x.model === c.model && x.effort === c.effort);
+      if (!r) { h += "<td></td>"; continue; }
+      const v = r.err_median_pct, a = Math.min(Math.abs(v) / 100, 1) * .75;
+      const col = v >= 0 ? `rgba(220,90,50,${a})` : `rgba(60,130,200,${a})`;
+      h += `<td style="background:${col}">${v > 0 ? "+" : v < 0 ? "−" : ""}${nf(Math.abs(v), 0)}</td>`;
+    }
+    h += "</tr>";
+  }
+  el.innerHTML = h + "</tbody>";
+}
+
+function snackTable() {
+  const eff = document.getElementById("snack-eff").value;
+  const sn = DATA.dataset.filter((d) => d.set === "snack");
+  let h = `<thead><tr><th>${t().product}</th><th>${t().truth}</th>${MODELS.map((m) => `<th>${MODEL_NAME[m]}</th>`).join("")}</tr></thead><tbody>`;
+  for (const d of sn) {
+    h += `<tr><td>${d["name_" + lang]}</td><td>${nf(d.gt_kcal, 0)}</td>`;
+    for (const m of MODELS) {
+      const r = DATA.items.find((x) => x.item === d.item && x.mode === "photo" && x.model === m && x.effort === eff);
+      if (!r) { h += "<td></td>"; continue; }
+      const bad = Math.abs(r.err_median_pct) > 20;
+      h += `<td class="${bad ? "bad" : ""}">${nf(r.median, 0)}<small>${nf(r.min, 0)}–${nf(r.max, 0)}</small></td>`;
+    }
+    h += "</tr>";
+  }
+  document.getElementById("snack-table").innerHTML = h + "</tbody>";
+}
+
+function sumTable() {
+  const [set, mode] = document.getElementById("sum-view").value.split("|");
+  const rows = ordered(S.filter((r) => r.set === set && r.mode === mode));
+  const best = Math.min(...rows.map((r) => r.mape));
+  document.getElementById("sum-table").innerHTML =
+    `<thead><tr>${t().cols.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>` +
+    rows.map((r) => `<tr><td>${r.label}</td><td style="font-weight:${r.mape === best ? 700 : 400};color:${r.mape === best ? "var(--ok)" : "inherit"}">${nf(r.mape)}</td>` +
+      `<td>${nf(r.mape_lo)}–${nf(r.mape_hi)}</td><td>${nf(r.within10, 0)}%</td><td>${nf(r.within20, 0)}%</td>` +
+      `<td>${r.bias > 0 ? "+" : ""}${nf(r.bias)}</td><td>${nf(r.cv)}</td><td>${nf(r.wape_protein)}</td><td>${nf(r.wape_fat)}</td><td>${nf(r.wape_carbs)}</td>` +
+      `<td>${nf(r.latency_s)}</td><td>${nf(r.cost_per_1000, 2)}</td></tr>`).join("") + "</tbody>";
+}
+
+function fillSelects() {
+  const hm = document.getElementById("heat-mode"), cur = hm.value || "photo";
+  hm.innerHTML = MODES.map((m) => `<option value="${m}">${t().mode_names[m]}</option>`).join(""); hm.value = cur;
+  const sv = document.getElementById("sum-view"), cv = sv.value || "dish|photo";
+  sv.innerHTML = MODES.map((m) => `<option value="dish|${m}">${t().set_names.dish}, ${t().mode_names[m].toLowerCase()}</option>`).join("") +
+    `<option value="snack|photo">${t().set_names.snack}, ${t().mode_names.photo.toLowerCase()}</option>`; sv.value = cv;
+}
+
+function tiles() {
+  const g = (c) => sRow(c), d = (c) => dRow(c);
+  const items = [
+    ["tile_photo", g("dish|photo|sonnet|low"), true], ["tile_main", g("dish|main_weight|sonnet|low")], ["tile_all", g("dish|weighed|sonnet|low")]];
+  let h = items.map(([k, r, first]) => `<div class="tile"><span class="k">${t()[k]}</span><span class="v">${pct(r.mape)}</span><span class="who">Sonnet 5.5 · low</span><span class="sub">${first ? t().tile_sub_ci(nf(r.mape_lo), nf(r.mape_hi)) : t().tile_ci(nf(r.mape_lo), nf(r.mape_hi))}</span></div>`).join("");
+  h += `<div class="tile"><span class="k">${t().tile_day}</span><span class="v">${pct(d("day|photo|sonnet|low").day_mape)}</span><span class="who">Sonnet 5.5 · low</span><span class="sub">${t().tile_day_sub(pct(d("day|main_weight|sonnet|low").day_mape))}</span></div>`;
+  document.getElementById("tiles").innerHTML = h;
+  document.getElementById("takeaway").innerHTML = t().takeaway(
+    pct(g("dish|photo|sonnet|low").mape), pct(g("dish|main_weight|sonnet|low").mape), pct(g("dish|weighed|sonnet|low").mape), pct(d("day|photo|sonnet|low").day_mape));
+}
+
+function render() {
+  document.documentElement.lang = lang;
+  document.title = lang === "uk" ? "trackEat: наскільки точно Claude рахує калорії з фото" : "trackEat: how accurately Claude counts calories from photos";
+  document.querySelectorAll("[data-i18n]").forEach((e) => { e.textContent = t()[e.dataset.i18n]; });
+  document.getElementById("eyebrow").textContent = t().eyebrow(DATA.runs);
+  document.getElementById("l-en").setAttribute("aria-pressed", lang === "en");
+  document.getElementById("l-uk").setAttribute("aria-pressed", lang === "uk");
+  document.getElementById("advice-cards").innerHTML = t().advice.map(([h, li]) => `<div class="card"><h3>${h}</h3><ul>${li.map((x) => `<li>${x}</li>`).join("")}</ul></div>`).join("");
+  document.getElementById("method-body").innerHTML = t().method.join("");
+  document.getElementById("runs-n").textContent = DATA.runs.toLocaleString(lang === "uk" ? "uk" : "en");
+  document.getElementById("foot").innerHTML = t().foot;
+  fillSelects(); tiles(); scenChart(); barsFor("dish", "c-dish"); barsFor("snack", "c-snack");
+  modesChart(); dailyChart(); costChart(); heat(); snackTable(); sumTable();
+}
+document.getElementById("l-en").onclick = () => { lang = "en"; try { localStorage.setItem("lang", lang); } catch (e) {} render(); };
+document.getElementById("l-uk").onclick = () => { lang = "uk"; try { localStorage.setItem("lang", lang); } catch (e) {} render(); };
+document.getElementById("heat-mode").onchange = heat;
+document.getElementById("snack-eff").onchange = snackTable;
+document.getElementById("sum-view").onchange = sumTable;
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+render();
+</script>
+</body>
+</html>

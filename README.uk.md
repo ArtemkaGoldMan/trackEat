@@ -13,7 +13,7 @@
 ![Шаблон безкоштовний](https://img.shields.io/badge/%D1%88%D0%B0%D0%B1%D0%BB%D0%BE%D0%BD-%D0%B1%D0%B5%D0%B7%D0%BA%D0%BE%D1%88%D1%82%D0%BE%D0%B2%D0%BD%D0%B8%D0%B9-20A67A)
 ![English · Українська](https://img.shields.io/badge/languages-English%20%C2%B7%20%D0%A3%D0%BA%D1%80%D0%B0%D1%97%D0%BD%D1%81%D1%8C%D0%BA%D0%B0-555555)
 
-[Відкрити приклад](https://docs.google.com/spreadsheets/d/1vx7z_Q0UrMAOrUVHVcDCbLGrZJeHRGuL47_ULDrv6D8/edit) · [Створити копію шаблону](https://docs.google.com/spreadsheets/d/1jmuORnlPcK1LIoxqUPPi2ncdgpgP2BfMlUyLNEWzvJs/copy)
+[Відкрити приклад](https://docs.google.com/spreadsheets/d/1vx7z_Q0UrMAOrUVHVcDCbLGrZJeHRGuL47_ULDrv6D8/edit) · [Створити копію шаблону](https://docs.google.com/spreadsheets/d/1jmuORnlPcK1LIoxqUPPi2ncdgpgP2BfMlUyLNEWzvJs/copy) · [Звіт про точність з графіками](https://artemkagoldman.github.io/trackEat/)
 
 [Як почати](#як-почати) · [Як це працює](#як-це-працює) · [Точність](#наскільки-це-точно) · [Питання](#питання) · [English](README.md)
 
@@ -110,7 +110,7 @@
 - **Snickers чи Mars в упаковці виходить майже точно**, Біг Мак у межах 5%.
 - **Опис страви без кількостей погіршує результат**, бо модель додає повну порцію всього, що ти назвав.
 
-Повний звіт з усіма моделями, налаштуваннями й довірчими інтервалами: [docs/benchmark.uk.md](docs/benchmark.uk.md).
+Інтерактивний звіт з графіками, усіма моделями, налаштуваннями й довірчими інтервалами: **[artemkagoldman.github.io/trackEat](https://artemkagoldman.github.io/trackEat/)**. Текстова версія: [docs/benchmark.uk.md](docs/benchmark.uk.md).
 Код і всі відповіді: [benchmark/](benchmark/).
 
 ## Питання

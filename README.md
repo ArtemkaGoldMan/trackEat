@@ -13,7 +13,7 @@ target, and draws charts of your weight, calories, protein and waist.
 ![Free to copy](https://img.shields.io/badge/template-free%20to%20copy-20A67A)
 ![English · Українська](https://img.shields.io/badge/languages-English%20%C2%B7%20%D0%A3%D0%BA%D1%80%D0%B0%D1%97%D0%BD%D1%81%D1%8C%D0%BA%D0%B0-555555)
 
-[Open the example](https://docs.google.com/spreadsheets/d/1w05KkzB-qLLtba76uZ9kUNTqpd0JIKgOzFDiLgsRd3g/edit) · [Copy the template](https://docs.google.com/spreadsheets/d/1uqmUvHJyP1vaeMkNlEO43t49wutPF7NhyMWm3-q2o7o/copy)
+[Open the example](https://docs.google.com/spreadsheets/d/1w05KkzB-qLLtba76uZ9kUNTqpd0JIKgOzFDiLgsRd3g/edit) · [Copy the template](https://docs.google.com/spreadsheets/d/1uqmUvHJyP1vaeMkNlEO43t49wutPF7NhyMWm3-q2o7o/copy) · [Accuracy report with charts](https://artemkagoldman.github.io/trackEat/)
 
 [Get started](#get-started) · [How it works](#how-it-works) · [Accuracy](#how-accurate-is-it) · [FAQ](#faq) · [Українська](README.uk.md)
 
@@ -112,7 +112,7 @@ products (about 4,800 answers, up to 10 per photo and setting).
 - **Describing a dish without amounts makes it worse**, because the model adds a full portion of everything
   you name.
 
-Full report with all models, settings and confidence intervals: [docs/benchmark.en.md](docs/benchmark.en.md).
+Interactive report with charts, every model and setting, and confidence intervals: **[artemkagoldman.github.io/trackEat](https://artemkagoldman.github.io/trackEat/)**. Text version: [docs/benchmark.en.md](docs/benchmark.en.md).
 Code and every answer: [benchmark/](benchmark/).
 
 ## FAQ
