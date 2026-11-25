@@ -38,6 +38,9 @@ How accurately Claude Haiku 5.5, Sonnet 5.5 and Opus 5.5 estimate calories and m
 | Opus 5.5 | medium | 31.6% | 22.1–42.1 | 33% | +11% |
 | Opus 5.5 | high | 31.2% | 21.9–41.6 | 34% | +12% |
 
+
+![Mean calorie error for plated dishes, photo only](img/dishes.en.png)
+
 Effort barely affects accuracy, while high makes the response twice as long and more expensive. Sonnet is the most accurate and hardly overestimates.
 
 ### Snacks and branded products, photo only
@@ -47,6 +50,9 @@ Effort barely affects accuracy, while high makes the response twice as long and 
 | Haiku 5.5 | low / medium / high | 34% / 24% / 25% | 10–54 | 54–67% |
 | Sonnet 5.5 | low / medium / high | 19% / 20% / 18% | 7–35 | 68–73% |
 | Opus 5.5 | low / medium / high | **11.5%** / 12.6% / 13.2% | 4–22 | 76–80% |
+
+
+![Mean calorie error for snacks and branded products](img/snacks.en.png)
 
 On snacks Opus is more accurate. Packaged food with a label (Snickers, Mars) comes out almost exactly because the model reads the weight and kcal from the label. Handfuls of nuts are underestimated by about 40%.
 
@@ -63,11 +69,47 @@ On snacks Opus is more accurate. Packaged food with a label (Snickers, Mars) com
 
 Opus shows a similar pattern: main item weight 20.7%, everything weighed 12.0%, list without amounts 35%, cooking description 39%.
 
+
+![Calorie error by what was sent with the photo](img/scenarios.en.png)
+
 Conclusion: a list of items or a cooking description without amounts does not help and actually hurts, because the model assumes a full portion of each named item and a lot of oil. Only weight helps.
+
+### Macros, time and cost (dishes, photo only)
+
+Error of protein, fat and carbohydrates is the total absolute gram error divided by total true grams. Macros are harder than calories: fat is the weakest.
+
+| Model | Effort | Protein error | Fat error | Carbs error | Time, s | $ per 1,000 photos |
+|---|---|---|---|---|---|---|
+| Haiku 5.5 | low | 36% | 45% | 48% | 6.9 | 0.64 |
+| Haiku 5.5 | medium | 35% | 43% | 43% | 8.0 | 0.73 |
+| Haiku 5.5 | high | 34% | 43% | 44% | 9.6 | 0.90 |
+| Sonnet 5.5 | low | 28% | 37% | 31% | 5.2 | 6.46 |
+| Sonnet 5.5 | medium | 28% | 38% | 30% | 5.3 | 6.17 |
+| Sonnet 5.5 | high | 27% | 37% | 31% | 9.5 | 11.64 |
+| Opus 5.5 | low | 26% | 35% | 35% | 7.2 | 15.40 |
+| Opus 5.5 | medium | 27% | 36% | 36% | 10.3 | 21.02 |
+| Opus 5.5 | high | 27% | 36% | 37% | 11.1 | 22.44 |
 
 ### Cost and speed
 
+
+![Accuracy versus price](img/cost.en.png)
+
 At API prices: Haiku ~$0.6–0.9, Sonnet ~$6–12, Opus ~$15–22 per 1,000 photos (photo only). A response takes 5–11 seconds. In Claude chat on a subscription, individual photos are not billed separately.
+
+### Over a whole day
+
+Errors of single meals partly cancel, so the daily error is about half of the per-dish error.
+
+![Daily error by mode](img/daily.en.png)
+
+### Every photo separately
+
+The median of up to 10 responses per photo, in % of the true calories. All models overestimate light dishes (sweet potato, salmon with beans, pizza with turkey) and underestimate heavy ones (beef with pasta, chicken thighs): they are pulled toward the middle. Sonnet is least biased, Haiku overestimates most.
+
+![Median error per photo](img/heatmap.en.png)
+
+An interactive version with all tables: **https://artemkagoldman.github.io/trackEat/**
 
 ## Conclusions
 
@@ -86,4 +128,4 @@ At API prices: Haiku ~$0.6–0.9, Sonnet ~$6–12, Opus ~$15–22 per 1,000 phot
 
 ## Reproducing
 
-Code and data are in [benchmark/](../benchmark/): `run_bench.py` (runs the test through the Claude Code CLI), `analyze.py` (computes the tables), `dataset.json` (ground truth and sources), `results.jsonl` (all model responses), `out/` (result tables as CSV and JSON). Photos are not included for license reasons: `download_images.py` downloads the Nutrition5k photos, and for branded products the photo links are in `dataset.json`.
+Code and data are in [benchmark/](../benchmark/): `run_bench.py` (runs the test through the Claude Code CLI), `analyze.py` (computes the tables), `dataset.json` (ground truth and sources), `results.jsonl` (all model responses), `out/` (result tables as CSV and JSON), `make_charts.py` (the PNG charts in this report) and `build_site.py` (the interactive page). Photos are not included for license reasons: `download_images.py` downloads the Nutrition5k photos, and for branded products the photo links are in `dataset.json`.

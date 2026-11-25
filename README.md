@@ -104,6 +104,8 @@ products (about 4,800 answers, up to 10 per photo and setting).
 | Photo and a list of items without amounts | 32% | 14% |
 | Photo and a cooking description without amounts | 33% | 14% |
 
+![Calorie error by what you send with the photo](docs/img/scenarios.en.png)
+
 - **Sonnet is the most accurate on dishes** (28% from a photo alone), Opus is a little better on snacks
   (about 12%), and Haiku overestimates (about 41%) and makes gross mistakes.
 - **A single dish from a photo alone can be off by a quarter or more.** Over a day the errors partly cancel
